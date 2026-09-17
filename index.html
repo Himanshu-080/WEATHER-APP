@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather App</title>
+  <link rel="stylesheet" href="s.css">
+</head>
+
+<body>
+  <div class="card">
+
+    <div class="search">
+      <input type="text" placeholder="enter city name" spellcheck="false">
+      <button>
+        <img src="search.png" alt="search">
+      </button>
+    </div>
+    
+    <div class="error">
+      <p>Invalid city name</p>
+    </div>
+
+    <div class="weather">
+
+
+      <img src="rain.png" class="weather-icon" alt="weather icon">
+      <h1 class="temp">22°C</h1>
+      <h2 class="city">New York</h2>
+      <p class="condition">Clear</p>
+      <p class="feels-like">Feels like 22°C</p>
+      <p class="weather-alert">Good weather for outdoor activities.</p>
+
+      <div class="details">
+
+        <div class="col">
+          <img src="humidity.png" alt="humidity">
+          <div>
+            <p class="humidity">50%</p>
+            <p>Humidity</p>
+          </div>
+        </div>
+
+        <div class="col">
+          <img src="wind.png" alt="wind">
+          <div>
+            <p class="wind">15 km/h</p>
+            <p>Wind Speed</p>
+          </div>
+        </div>
+
+      </div>
+      
+      <div class="forecast">
+          <h3>5-Day Forecast</h3>
+          <div class="forecast-container"></div>
+      </div>
+
+
+    </div>
+
+  </div>
+
+<script>
+const apiKey = "35ec90ed2c175f43390e2933e7b1fb0f";
+
+const weatherApi = "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
+const forecastApi = "https://api.openweathermap.org/data/2.5/forecast?units=metric&q=";
+
+const searchBox = document.querySelector(".search input");
+const searchBtn = document.querySelector(".search button");
+const weatherIcon = document.querySelector(".weather-icon");
+const forecastContainer = document.querySelector(".forecast-container");
+
+async function checkWeather(city) {
+    if (city.trim() === "") return;
+
+    try {
+        const weatherResponse = await fetch(
+            weatherApi + encodeURIComponent(city) + `&appid=${apiKey}`
+        );
+
+        if (!weatherResponse.ok) {
+            showError();
+            return;
+        }
+
+        const weatherData = await weatherResponse.json();
+
+        displayWeather(weatherData);
+
+        const forecastResponse = await fetch(
+            forecastApi + encodeURIComponent(city) + `&appid=${apiKey}`
+        );
+
+        if (forecastResponse.ok) {
+            const forecastData = await forecastResponse.json();
+            displayForecast(forecastData);
+        }
+
+        document.querySelector(".weather").style.display = "block";
+        document.querySelector(".error").style.display = "none";
+
+    } catch (error) {
+        showError();
+    }
+}
+
+function displayWeather(data) {
+
+
+    document.querySelector(".city").textContent = data.name;
+
+    document.querySelector(".temp").textContent =
+        Math.round(data.main.temp) + "°C";
+
+    document.querySelector(".humidity").textContent =
+        data.main.humidity + "%";
+
+    document.querySelector(".wind").textContent =
+        data.wind.speed + " km/h";
+
+    const condition = data.weather[0].main;
+
+    document.querySelector(".condition").textContent = condition;
+
+    document.querySelector(".feels-like").textContent =
+        "Feels like " + Math.round(data.main.feels_like) + "°C";
+
+    weatherIcon.src = getWeatherIcon(condition);
+
+    const alert = document.querySelector(".weather-alert");
+
+    if (condition === "Rain" || condition === "Drizzle") {
+        alert.textContent = "Rain may occur. Carry an umbrella.";
+    } else if (data.wind.speed > 10) {
+        alert.textContent = "Strong winds expected. Be careful outdoors.";
+    } else if (data.main.temp > 35) {
+        alert.textContent = "High temperature. Stay hydrated.";
+    } else if (data.main.temp < 10) {
+        alert.textContent = "Cold weather. Take care when going outside.";
+    } else {
+        alert.textContent =
+            "Weather looks suitable for outdoor activities.";
+    }
+}
+
+function displayForecast(data) {
+    forecastContainer.innerHTML = "";
+
+    const days = {};
+
+    data.list.forEach((item) => {
+        const date = item.dt_txt.split(" ")[0];
+
+        if (!days[date]) {
+            days[date] = [];
+        }
+
+        days[date].push(item);
+    });
+
+    Object.values(days).slice(0, 5).forEach((dayForecast) => {
+
+        const forecast =
+            dayForecast.find(item => item.dt_txt.includes("12:00:00"))
+            || dayForecast[0];
+
+        const date = new Date(forecast.dt * 1000);
+
+        const dayName = date.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric"
+        });
+
+        const rainChance = Math.round((forecast.pop || 0) * 100);
+        const condition = forecast.weather[0].main;
+
+        const card = document.createElement("div");
+        card.className = "forecast-card";
+
+        card.innerHTML = `
+            <p>${dayName}</p>
+            <img src="${getWeatherIcon(condition)}" alt="weather">
+            <p class="forecast-temp">${Math.round(forecast.main.temp)}°C</p>
+            <p>${condition}</p>
+            <p>Rain: ${rainChance}%</p>
+        `;
+
+        forecastContainer.appendChild(card);
+    });
+}
+
+function getWeatherIcon(condition) {
+    if (condition === "Clouds") {
+        return "clouds.png";
+    }
+
+    if (condition === "Clear") {
+        return "clear.png";
+    }
+
+    if (condition === "Rain") {
+        return "rain.png";
+    }
+
+    if (condition === "Drizzle") {
+        return "drizzle.png";
+    }
+
+    if (condition === "Mist") {
+        return "mist.png";
+    }
+
+    return "clear.png";
+}
+
+function showError() {
+    document.querySelector(".error").style.display = "block";
+    document.querySelector(".weather").style.display = "none";
+}
+
+searchBtn.addEventListener("click", () => {
+    checkWeather(searchBox.value);
+});
+
+searchBox.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        checkWeather(searchBox.value);
+    }
+});
+checkWeather("Lucknow");
+
+</script>
+
+
+</body>
+</html>
+
